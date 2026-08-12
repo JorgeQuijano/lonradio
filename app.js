@@ -1,346 +1,393 @@
-// lonradio — channel directory + player + live log
-// All streams are public embeds from upstream providers; we never proxy their bytes.
+// lonradio — channel directory + iframe player + live log + map
+// Audio is embedded from upstream providers via iframe; we never proxy their bytes.
 
 const CHANNELS = [
-  {
-    id: "cyxu-tower",
-    icon: "🛫",
-    name: "CYXU Tower",
-    freq: "119.4 MHz",
-    sub: "London Intl Airport — Tower (North + South)",
-    agency: "NAV Canada",
-    type: "ATC",
-    url: "https://www.liveatc.net/hlisten.php?mount=cyxu1_twr",
-    source: "LiveATC",
-    sourceUrl: "https://www.liveatc.net/hlisten.php?mount=cyxu1_twr",
-    live: true,
-  },
-  {
-    id: "cyxu-ground",
-    icon: "🛬",
-    name: "CYXU Ground",
-    freq: "121.9 MHz",
-    sub: "London Intl Airport — Ground control",
-    agency: "NAV Canada",
-    type: "ATC",
-    url: "https://www.liveatc.net/hlisten.php?mount=cyxu1_gnd",
-    source: "LiveATC",
-    sourceUrl: "https://www.liveatc.net/hlisten.php?mount=cyxu1_gnd",
-    live: true,
-  },
+  // Public safety — Broadcastify iframe (works cross-origin)
   {
     id: "london-fire",
+    group: "public",
     icon: "🚒",
     name: "London Fire + Public Works",
     freq: "P25 OneVoice",
     sub: "Fire Dispatch · Fire-Tac · Public Works",
     agency: "City of London",
-    type: "Scanner",
-    url: "https://www.broadcastify.com/listen/feed/34296",
-    source: "Broadcastify (community)",
+    type: "Stream",
+    src: "https://www.broadcastify.com/listen/feed/34296",
+    sourceLabel: "Broadcastify",
     sourceUrl: "https://www.broadcastify.com/listen/feed/34296",
-    live: true,
+    location: { lat: 42.9849, lng: -81.2453, label: "London — City Centre" },
   },
   {
-    id: "opp-mto",
-    icon: "🚓",
-    name: "OPP + MTO",
-    freq: "VHF/UHF",
-    sub: "Ontario Provincial Police + Ministry of Transport",
-    agency: "OPP",
-    type: "Scanner",
-    url: "https://www.broadcastify.com/listen/feed/31107",
-    source: "Broadcastify (community)",
-    sourceUrl: "https://www.broadcastify.com/listen/feed/31107",
-    live: true,
+    id: "middlesex-fire",
+    group: "public",
+    icon: "🚒",
+    name: "Middlesex County Fire",
+    freq: "P25",
+    sub: "Fire Tac 1 + Tac 3 — county-wide tactical",
+    agency: "Middlesex County",
+    type: "Stream",
+    src: "https://www.broadcastify.com/listen/feed/18244",
+    sourceLabel: "Broadcastify",
+    sourceUrl: "https://www.broadcastify.com/listen/feed/18244",
+    location: { lat: 42.9649, lng: -81.2253, label: "Middlesex County" },
   },
+  {
+    id: "timmins-atc",
+    group: "public",
+    icon: "✈️",
+    name: "Timmins Airport ATC",
+    freq: "VHF",
+    sub: "Flight Service + local area traffic (closest public aviation stream)",
+    agency: "NAV Canada",
+    type: "Stream",
+    src: "https://www.broadcastify.com/listen/feed/35818",
+    sourceLabel: "Broadcastify",
+    sourceUrl: "https://www.broadcastify.com/listen/feed/35818",
+    note: "CYXU Tower/Ground are linked out below — LiveATC blocks embedding.",
+    location: { lat: 48.5697, lng: -81.3767, label: "Timmins (CYTS)" },
+  },
+  // Aviation — LiveATC external (Cloudflare-protected, won't iframe cleanly)
+  {
+    id: "cyxu-tower",
+    group: "aviation",
+    icon: "🛫",
+    name: "CYXU Tower",
+    freq: "119.4 MHz",
+    sub: "London Intl Airport — Tower (North + South)",
+    agency: "NAV Canada",
+    type: "External",
+    sourceLabel: "LiveATC",
+    sourceUrl: "https://www.liveatc.net/hlisten.php?mount=cyxu1_twr",
+    location: { lat: 43.0356, lng: -81.1539, label: "London International (CYXU)" },
+  },
+  {
+    id: "cyxu-ground",
+    group: "aviation",
+    icon: "🛬",
+    name: "CYXU Ground",
+    freq: "121.9 MHz",
+    sub: "London Intl Airport — Ground control",
+    agency: "NAV Canada",
+    type: "External",
+    sourceLabel: "LiveATC",
+    sourceUrl: "https://www.liveatc.net/hlisten.php?mount=cyxu1_gnd",
+    location: { lat: 43.0356, lng: -81.1539, label: "London International (CYXU)" },
+  },
+  // Weather — reference (no public internet stream)
   {
     id: "weatheradio",
+    group: "weather",
     icon: "🌦️",
     name: "Weatheradio London",
-    freq: "162.xxx MHz",
+    freq: "162.xxx MHz VHF",
     sub: "Environment Canada weather alerts + forecasts",
     agency: "ECCC",
-    type: "Weather",
-    url: "https://www.canada.ca/en/environment-climate-change/services/weatheradio/find-your-network/ontario.html",
-    source: "Canada.ca",
+    type: "Reference",
+    sourceLabel: "Canada.ca",
     sourceUrl: "https://www.canada.ca/en/environment-climate-change/services/weatheradio/find-your-network/ontario.html",
-    live: true,
-    note: "Requires an SDR receiver (RTL-SDR, etc.) — included for reference; no public internet stream.",
+    note: "No public internet stream. Receive with an SDR (RTL-SDR v3 + rtl_fm).",
+    location: { lat: 42.9849, lng: -81.2453, label: "London transmitter" },
   },
+  // Unavailable — encrypted
   {
     id: "lps-police",
+    group: "locked",
     icon: "🔒",
     name: "London Police Service",
     freq: "P25 PSRN",
     sub: "Encrypted — not streamable",
     agency: "LPS",
     type: "Encrypted",
-    url: null,
-    live: false,
-    encrypted: true,
     note: "Migrated to Ontario PSRN; AES encrypted. Cannot be legally received or streamed.",
   },
   {
     id: "ems-dispatch",
+    group: "locked",
     icon: "🔒",
     name: "EMS Dispatch",
     freq: "P25 PSRN",
     sub: "Encrypted — not streamable",
     agency: "Ontario CACC",
     type: "Encrypted",
-    url: null,
-    live: false,
-    encrypted: true,
     note: "Moved to Ontario PSRN and encrypted in 2024. Not streamable.",
   },
 ];
 
+const GROUPS = {
+  public: document.getElementById("channels-public"),
+  aviation: document.getElementById("channels-aviation"),
+  weather: document.getElementById("channels-weather"),
+  locked: document.getElementById("channels-locked"),
+};
+
 // State
 let currentId = null;
-let audio = null;
-let analyser = null;
-let canvasCtx = null;
-let rafId = null;
-let log = [];
-let startedAt = 0;
+let logEntries = [];
+let iframeLoadTimer = null;
+let map = null;
+let markers = [];
 
 // DOM
-const $channels = document.getElementById("channels");
-const $cards = document.getElementById("cards");
 const $nowTitle = document.getElementById("now-title");
 const $nowMeta = document.getElementById("now-meta");
-const $playerTitle = document.getElementById("player-title");
-const $playerSub = document.getElementById("player-sub");
-const $playBtn = document.getElementById("play-btn");
-const $playIcon = document.getElementById("play-icon");
-const $volume = document.getElementById("volume");
+const $headerTag = document.getElementById("header-tag");
 const $status = document.getElementById("status");
 const $statusText = document.getElementById("status-text");
-const $loading = document.getElementById("loading");
-const $loadingElapsed = document.getElementById("loading-elapsed");
+const $iframe = document.getElementById("player-iframe");
+const $cta = document.getElementById("player-cta");
+const $ctaIcon = document.getElementById("cta-icon");
+const $ctaTitle = document.getElementById("cta-title");
+const $ctaSub = document.getElementById("cta-sub");
+const $ctaLink = document.getElementById("cta-link");
+const $ctaSource = document.getElementById("cta-source");
+const $ctaPopout = document.getElementById("cta-popout");
 const $log = document.getElementById("log");
 const $logCount = document.getElementById("log-count");
 const $themeToggle = document.getElementById("theme-toggle");
-const $canvas = document.getElementById("viz");
+const $cards = document.getElementById("cards");
+const $clock = document.getElementById("clock");
 
+// ---------- Sidebar ----------
 function renderSidebar() {
-  $channels.innerHTML = CHANNELS.map(c => `
-    <button class="channel" role="listitem" data-id="${c.id}" aria-selected="${c.id === currentId}">
-      <span class="channel-icon" aria-hidden="true">${c.icon}</span>
-      <span>
-        <div class="channel-name">${c.name}</div>
-        <div class="channel-freq">${c.freq}</div>
-      </span>
-      <span class="channel-dot ${c.encrypted ? "encrypted" : c.live ? "live" : ""}" title="${c.encrypted ? "Encrypted" : "Live"}"></span>
-    </button>
-  `).join("");
-  $channels.querySelectorAll(".channel").forEach(el => {
-    el.addEventListener("click", () => selectChannel(el.dataset.id));
+  for (const [group, el] of Object.entries(GROUPS)) {
+    if (!el) continue;
+    const items = CHANNELS.filter(c => c.group === group);
+    el.innerHTML = items.map(c => {
+      const dotClass = c.type === "Encrypted" ? "encrypted" :
+                       c.type === "External" ? "external" :
+                       c.type === "Reference" ? "reference" :
+                       "live";
+      const disabled = c.type === "Encrypted";
+      return `
+        <button class="channel" role="listitem" data-id="${c.id}" aria-selected="${c.id === currentId}" ${disabled ? "disabled title=\"Encrypted — cannot stream\"" : ""}>
+          <span class="channel-icon" aria-hidden="true">${c.icon}</span>
+          <span>
+            <div class="channel-name">${c.name}</div>
+            <div class="channel-freq">${c.freq}</div>
+          </span>
+          <span class="channel-dot ${dotClass}" title="${c.type}"></span>
+        </button>
+      `;
+    }).join("");
+  }
+  document.querySelectorAll(".channel[data-id]").forEach(el => {
+    el.addEventListener("click", () => {
+      if (el.disabled) return;
+      selectChannel(el.dataset.id);
+    });
   });
 }
 
+// ---------- Header + cards ----------
+function setHeader(c) {
+  $headerTag.textContent = c.type === "Stream" ? "Live stream" :
+                           c.type === "External" ? "External link" :
+                           c.type === "Reference" ? "Reference" :
+                           "Unavailable";
+  $headerTag.className = "header-tag tag-" + c.type.toLowerCase();
+  $nowTitle.textContent = c.name;
+  $nowMeta.textContent = c.sub;
+}
+
 function renderCards(c) {
-  if (!c) { $cards.innerHTML = ""; return; }
   const items = [
     { label: "Channel", value: c.name },
     { label: "Frequency", value: c.freq },
     { label: "Agency", value: c.agency },
     { label: "Type", value: c.type },
+    { label: "Source", value: c.sourceLabel || "—" },
   ];
+  if (c.location) items.push({ label: "Coverage", value: c.location.label });
   $cards.innerHTML = items.map(i => `
     <div class="card">
       <div class="card-label">${i.label}</div>
       <div class="card-value">${i.value}</div>
     </div>
-  `).join("") + (c.note ? `
-    <div class="card" style="grid-column: 1/-1">
-      <div class="card-label">Note</div>
-      <div class="card-sub">${c.note}</div>
-      ${c.sourceUrl ? `<a class="card-link" href="${c.sourceUrl}" target="_blank" rel="noopener">Open source ↗</a>` : ""}
-    </div>
-  ` : "");
+  `).join("");
+  if (c.note || c.sourceUrl) {
+    $cards.innerHTML += `
+      <div class="card" style="grid-column: 1/-1">
+        <div class="card-label">${c.note ? "Note" : "Source"}</div>
+        ${c.note ? `<div class="card-sub">${c.note}</div>` : ""}
+        ${c.sourceUrl ? `<a class="card-link" href="${c.sourceUrl}" target="_blank" rel="noopener noreferrer">Open ${c.sourceLabel} ↗</a>` : ""}
+      </div>
+    `;
+  }
 }
 
+// ---------- Status ----------
 function setStatus(state, text) {
-  $status.classList.remove("live", "error");
-  if (state === "live") $status.classList.add("live");
-  if (state === "error") $status.classList.add("error");
+  $status.classList.remove("live", "error", "buffering", "ready");
+  $status.classList.add(state);
   $statusText.textContent = text;
 }
 
-function showLoading(show) {
-  $loading.hidden = !show;
-  if (show) {
-    startedAt = performance.now();
-    const tick = () => {
-      if (!show) return;
-      const s = ((performance.now() - startedAt) / 1000).toFixed(1);
-      $loadingElapsed.textContent = s + "s";
-      if (show) requestAnimationFrame(tick);
-    };
-    tick();
-  }
-}
-
-function logEntry(text) {
+// ---------- Activity log ----------
+function logEntry(text, kind = "") {
   const t = new Date();
   const time = t.toTimeString().slice(0, 8);
-  log.unshift({ time, text });
-  if (log.length > 40) log.pop();
-  $log.innerHTML = log.map(e => `
+  logEntries.unshift({ time, text, kind });
+  if (logEntries.length > 60) logEntries.pop();
+  $log.innerHTML = logEntries.map(e => `
     <div class="log-entry">
       <span class="log-time">${e.time}</span>
-      <span class="log-text">${e.text}</span>
+      <span class="log-text ${e.kind ? "log-" + e.kind : ""}">${e.text}</span>
     </div>
   `).join("");
-  $logCount.textContent = `${log.length} entries`;
+  $logCount.textContent = `${logEntries.length} entries`;
 }
 
-function ensureAudio() {
-  if (audio) return audio;
-  audio = new Audio();
-  audio.crossOrigin = "anonymous";
-  audio.volume = parseFloat($volume.value);
-  audio.addEventListener("playing", () => {
-    showLoading(false);
-    setStatus("live", "live");
-    $playIcon.textContent = "❚❚";
-    setupAnalyser();
-  });
-  audio.addEventListener("waiting", () => {
-    setStatus("idle", "buffering");
-  });
-  audio.addEventListener("error", () => {
-    showLoading(false);
-    setStatus("error", "stream error");
-    logEntry("Stream error — provider may require manual open in a new tab.");
-    $playIcon.textContent = "▶";
-  });
-  audio.addEventListener("pause", () => {
-    setStatus("idle", "paused");
-    $playIcon.textContent = "▶";
-  });
-  return audio;
+// ---------- Player surfaces ----------
+function showIframe(url) {
+  $cta.hidden = true;
+  $iframe.hidden = false;
+  setStatus("buffering", "loading…");
+  if (iframeLoadTimer) clearTimeout(iframeLoadTimer);
+  iframeLoadTimer = setTimeout(() => {
+    setStatus("live", "ready");
+    logEntry("Feed loaded", "event");
+  }, 2500);
+  // Force reload by setting src
+  if ($iframe.src !== url) $iframe.src = url;
 }
 
-function setupAnalyser() {
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    const source = ctx.createMediaElementSource(audio);
-    analyser = ctx.createAnalyser();
-    analyser.fftSize = 256;
-    source.connect(analyser);
-    analyser.connect(ctx.destination);
-    canvasCtx = $canvas.getContext("2d");
-    draw();
-  } catch (e) {
-    logEntry("Audio visualization unavailable: " + e.message);
+function showCta(c) {
+  $iframe.hidden = true;
+  $iframe.removeAttribute("src");
+  $cta.hidden = false;
+
+  let icon = "📡", title = "Open in new tab", sub = "";
+  if (c.type === "External") {
+    icon = "🔗";
+    title = "External audio source";
+    sub = `This feed is on ${c.sourceLabel}. LiveATC and other providers block direct embedding, so we link you straight to it.`;
+  } else if (c.type === "Reference") {
+    icon = "📻";
+    title = "Receive with an SDR";
+    sub = "No public internet stream exists. Pick up this frequency with a $35 RTL-SDR dongle.";
+  } else if (c.type === "Encrypted") {
+    icon = "🔒";
+    title = "Encrypted — cannot stream";
+    sub = c.note || "This channel is encrypted and cannot be legally received or streamed.";
   }
+  $ctaIcon.textContent = icon;
+  $ctaTitle.textContent = title;
+  $ctaSub.textContent = sub;
+  $ctaLink.href = c.sourceUrl || "#";
+  $ctaSource.textContent = c.sourceLabel || "source";
+  $ctaLink.textContent = "";
+  $ctaLink.appendChild(document.createTextNode(""));
+  const linkText = document.createTextNode("");
+  $ctaLink.innerHTML = `Open <span>${c.sourceLabel || "source"}</span> ↗`;
+
+  // Pop out button opens in a small window for quick toggle
+  $ctaPopout.onclick = () => window.open(c.sourceUrl, `${c.id}`, "width=420,height=520");
 }
 
-function draw() {
-  if (!analyser || !canvasCtx) return;
-  const buf = new Uint8Array(analyser.frequencyBinCount);
-  const drawFrame = () => {
-    analyser.getByteFrequencyData(buf);
-    const w = $canvas.width;
-    const h = $canvas.height;
-    canvasCtx.clearRect(0, 0, w, h);
-    const bars = 64;
-    const step = Math.floor(buf.length / bars);
-    const bw = w / bars;
-    for (let i = 0; i < bars; i++) {
-      const v = buf[i * step] / 255;
-      const bh = v * h * 0.9;
-      const x = i * bw;
-      const y = h - bh;
-      const grad = canvasCtx.createLinearGradient(0, y, 0, h);
-      grad.addColorStop(0, "#00d4aa");
-      grad.addColorStop(1, "#00d4aa22");
-      canvasCtx.fillStyle = grad;
-      canvasCtx.fillRect(x + 1, y, bw - 2, bh);
-    }
-    rafId = requestAnimationFrame(drawFrame);
-  };
-  drawFrame();
-}
-
-function stopAudio() {
-  if (audio) {
-    audio.pause();
-    audio.src = "";
-  }
-  if (rafId) cancelAnimationFrame(rafId);
-  rafId = null;
-  analyser = null;
-  canvasCtx = null;
-  if (canvasCtx) {
-    canvasCtx.clearRect(0, 0, $canvas.width, $canvas.height);
-  }
-  $playIcon.textContent = "▶";
-  setStatus("idle", "idle");
-}
-
+// ---------- Channel switching ----------
 function selectChannel(id) {
   const c = CHANNELS.find(x => x.id === id);
   if (!c) return;
+  const prevId = currentId;
   currentId = id;
-  stopAudio();
   renderSidebar();
   renderCards(c);
-  $nowTitle.textContent = c.name;
-  $nowMeta.textContent = c.sub;
-  $playerTitle.textContent = c.name;
-  $playerSub.textContent = c.freq + " · " + c.agency;
+  setHeader(c);
   logEntry(`Switched to ${c.name} (${c.freq})`);
 
-  if (c.encrypted || !c.url) {
-    $playBtn.disabled = true;
-    setStatus("error", "unavailable");
-    logEntry(`${c.name} is encrypted or has no public stream.`);
-    return;
-  }
+  if (c.location) focusMapOn(c.location);
 
-  $playBtn.disabled = false;
-  showLoading(true);
-  setStatus("idle", "connecting");
-  const a = ensureAudio();
-  a.src = c.url;
-  a.play().catch(err => {
-    showLoading(false);
-    setStatus("error", "blocked");
-    logEntry("Autoplay blocked — click play to start.");
-    console.warn(err);
-  });
+  if (c.type === "Stream") {
+    showIframe(c.src);
+  } else {
+    showCta(c);
+    if (c.type === "External") setStatus("ready", "external link");
+    else if (c.type === "Reference") setStatus("ready", "reference");
+    else if (c.type === "Encrypted") setStatus("error", "encrypted");
+  }
 }
 
-$playBtn.addEventListener("click", () => {
-  if (!audio || !currentId) return;
-  if (audio.paused) {
-    audio.play().catch(e => logEntry("Play failed: " + e.message));
-  } else {
-    audio.pause();
-  }
-});
-
-$volume.addEventListener("input", () => {
-  if (audio) audio.volume = parseFloat($volume.value);
-});
-
+// ---------- Controls ----------
+let tileLayer = null;
 $themeToggle.addEventListener("click", () => {
   const cur = document.documentElement.getAttribute("data-theme");
   const next = cur === "light" ? "" : "light";
   if (next) document.documentElement.setAttribute("data-theme", next);
   else document.documentElement.removeAttribute("data-theme");
   localStorage.setItem("lonradio-theme", next);
+  // Swap map tiles to match theme
+  if (map) {
+    if (tileLayer) map.removeLayer(tileLayer);
+    const isLight = next === "light";
+    const url = isLight
+      ? "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+      : "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+    tileLayer = L.tileLayer(url, {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      maxZoom: 18,
+    }).addTo(map);
+  }
 });
 
+// ---------- Map ----------
+function initMap() {
+  if (typeof L === "undefined") {
+    logEntry("Leaflet failed to load — map disabled", "warn");
+    return;
+  }
+  map = L.map("map", { scrollWheelZoom: false }).setView([42.98, -81.25], 8);
+  const isLight = document.documentElement.getAttribute("data-theme") === "light";
+  const tileUrl = isLight
+    ? "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+    : "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+  tileLayer = L.tileLayer(tileUrl, {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    maxZoom: 18,
+  }).addTo(map);
+  for (const c of CHANNELS) {
+    if (!c.location) continue;
+    const color = c.type === "Encrypted" ? "#ffb84d" :
+                   c.type === "External" ? "#8a8a93" :
+                   c.type === "Reference" ? "#ffb84d" :
+                   "#00d4aa";
+    const m = L.circleMarker([c.location.lat, c.location.lng], {
+      radius: c.group === "aviation" ? 10 : 8,
+      color,
+      weight: 2,
+      fillOpacity: 0.4,
+    }).addTo(map);
+    m.bindPopup(`<strong>${c.name}</strong><br>${c.freq}<br><small>${c.location.label}</small>`);
+    m.on("click", () => {
+      if (c.type !== "Encrypted") selectChannel(c.id);
+    });
+    markers.push(m);
+  }
+}
+
+function focusMapOn(loc) {
+  if (!map || !loc) return;
+  map.flyTo([loc.lat, loc.lng], Math.max(map.getZoom(), 9), { duration: 0.6 });
+  const m = markers.find(mm => {
+    const ll = mm.getLatLng();
+    return Math.abs(ll.lat - loc.lat) < 0.001 && Math.abs(ll.lng - loc.lng) < 0.001;
+  });
+  if (m) m.openPopup();
+}
+
+// ---------- Clock ----------
+function tickClock() {
+  if (!$clock) return;
+  const d = new Date();
+  $clock.textContent = d.toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit", hour12: false }) + " ET";
+}
+setInterval(tickClock, 30000);
+
+// ---------- Init ----------
 (function init() {
   const saved = localStorage.getItem("lonradio-theme");
   if (saved === "light") document.documentElement.setAttribute("data-theme", "light");
+  tickClock();
   renderSidebar();
-  selectChannel("cyxu-tower"); // default: airport tower (always chatty)
+  initMap();
+  selectChannel("london-fire"); // default to London Fire
 })();

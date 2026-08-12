@@ -5,23 +5,56 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>lonradio — London, Ontario live emergency & ATC audio</title>
   <meta name="description" content="Live scanner and air traffic control audio for London, Ontario — fire, public works, OPP, weather, CYXU tower and ground." />
+  <meta name="theme-color" content="#0a0a0b" />
   <meta property="og:title" content="lonradio — London, Ontario live audio" />
   <meta property="og:description" content="Live scanner and ATC audio for London, Ontario." />
   <meta property="og:type" content="website" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%2300d4aa%22/></svg>" />
+  <meta property="og:image" content="https://JorgeQuijano.github.io/lonradio/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <div class="app">
-    <!-- Sidebar Nav (Beautiful UI pattern) -->
+    <!-- Sidebar Nav -->
     <aside class="sidebar" aria-label="Channels">
       <div class="brand">
         <span class="brand-dot" aria-hidden="true"></span>
-        <span class="brand-name">lonradio</span>
+        <div>
+          <a href="/" style="color:inherit;text-decoration:none;">
+            <div class="brand-name">lonradio</div>
+            <div class="brand-sub muted">London, ON · live</div>
+          </a>
+        </div>
       </div>
-      <nav class="channels" id="channels" role="list"></nav>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Public safety</div>
+        <nav class="channels" id="channels-public" role="list"></nav>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Aviation</div>
+        <nav class="channels" id="channels-aviation" role="list"></nav>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Weather</div>
+        <nav class="channels" id="channels-weather" role="list"></nav>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Unavailable</div>
+        <nav class="channels" id="channels-locked" role="list"></nav>
+      </div>
+
       <footer class="sidebar-foot">
-        <span class="muted">London, ON · CA</span>
+        <a href="/about.html" class="muted small">About</a>
+        <span class="muted small">·</span>
+        <span class="muted small" id="clock">—</span>
         <button id="theme-toggle" class="icon-btn" aria-label="Toggle theme">◐</button>
       </footer>
     </aside>
@@ -30,66 +63,79 @@
     <main class="main">
       <header class="header">
         <div class="header-left">
-          <h1 id="now-title">Select a channel</h1>
-          <p id="now-meta" class="muted">Pick a feed from the sidebar to start listening.</p>
+          <div class="header-tag" id="header-tag">Stream</div>
+          <h1 id="now-title">London Fire + Public Works</h1>
+          <p id="now-meta" class="muted">Fire Dispatch · Fire-Tac · Public Works · City of London OneVoice P25</p>
         </div>
         <div class="header-right">
           <span class="status" id="status">
             <span class="status-dot" aria-hidden="true"></span>
-            <span id="status-text">idle</span>
+            <span id="status-text">ready</span>
           </span>
         </div>
       </header>
 
       <!-- Player -->
-      <section class="player">
-        <div class="player-visual" aria-hidden="true">
-          <canvas id="viz" width="800" height="120"></canvas>
-        </div>
-        <div class="player-controls">
-          <button id="play-btn" class="play" aria-label="Play/Pause" disabled>
-            <span id="play-icon">▶</span>
-          </button>
-          <div class="player-meta">
-            <div class="player-title" id="player-title">No channel selected</div>
-            <div class="player-sub muted" id="player-sub">—</div>
-          </div>
-          <div class="volume">
-            <span aria-hidden="true">🔊</span>
-            <input type="range" id="volume" min="0" max="1" step="0.01" value="0.7" aria-label="Volume" />
-          </div>
-        </div>
-        <!-- Loading State (Beautiful UI pattern) — shown when connecting -->
-        <div id="loading" class="loading" hidden>
-          <div class="loading-grid" aria-hidden="true"></div>
-          <div class="loading-text">Connecting <span id="loading-elapsed">0.0s</span></div>
+      <section class="player" id="player">
+        <!-- Surface A: BCFY iframe for Stream channels -->
+        <iframe
+          id="player-iframe"
+          class="player-iframe"
+          title="Live audio stream"
+          allow="autoplay"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"></iframe>
+
+        <!-- Surface B: CTA card for External/Reference/Encrypted channels -->
+        <div class="player-cta" id="player-cta" hidden>
+          <div class="cta-icon" id="cta-icon">📡</div>
+          <div class="cta-title" id="cta-title">Open in new tab</div>
+          <div class="cta-sub" id="cta-sub">This feed opens on its source site</div>
+          <a id="cta-link" class="cta-btn" target="_blank" rel="noopener noreferrer">Open <span id="cta-source">—</span> ↗</a>
+          <button id="cta-popout" class="cta-popout" type="button">Pop out ↗</button>
         </div>
       </section>
 
-      <!-- Insight Cards row -->
+      <!-- Channel detail cards -->
       <section class="cards" id="cards" aria-label="Channel details"></section>
 
-      <!-- Streaming Text (Beautiful UI pattern) — live transcript / call log -->
+      <!-- Map -->
+      <section class="map-section">
+        <div class="section-head">
+          <h2>Coverage area</h2>
+          <span class="muted small">London, Ontario</span>
+        </div>
+        <div id="map" class="map" role="region" aria-label="Map of channel coverage in London, Ontario"></div>
+        <div class="map-legend small muted">
+          <span class="legend-dot legend-stream"></span> Stream
+          <span class="legend-dot legend-external"></span> External link
+          <span class="legend-dot legend-reference"></span> Reference
+          <span class="legend-dot legend-encrypted"></span> Encrypted
+        </div>
+      </section>
+
+      <!-- Live log -->
       <section class="log-section">
         <div class="section-head">
-          <h2>Recent transmissions</h2>
+          <h2>Recent activity</h2>
           <span class="muted small" id="log-count">0 entries</span>
         </div>
         <div class="log" id="log" aria-live="polite">
-          <p class="muted small log-empty">Live event log will appear here once a feed is playing.</p>
+          <p class="muted small log-empty">Switch channels in the sidebar. Activity entries are recorded locally as you navigate.</p>
         </div>
       </section>
 
       <footer class="foot">
         <p class="small muted">
-          Streams: LiveATC.net (CYXU), Broadcastify (community scanners), Canada.ca (Weatheradio).
-          Police and EMS dispatch in London are encrypted on the Ontario PSRN and cannot be streamed.
-          Built as a side project. Not affiliated with any agency.
+          Audio streams are embedded from third-party sources (Broadcastify, LiveATC, Canada.ca).
+          This site does not host, proxy, or rebroadcast any audio. Police and EMS dispatch in
+          London are encrypted on the Ontario PSRN and cannot be streamed. Not for emergency use — dial 911.
         </p>
       </footer>
     </main>
   </div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="/app.js"></script>
 </body>
 </html>

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>About — lonradio</title>
+  <meta name="description" content="About lonradio — what it is, what it isn't, where the streams come from, and what's encrypted and can't be received." />
+  <meta name="theme-color" content="#0a0a0b" />
+  <meta property="og:title" content="About lonradio" />
+  <meta property="og:description" content="A side project that puts every public, non-encrypted emergency and aviation audio feed for London, Ontario into one place." />
+  <meta property="og:image" content="https://JorgeQuijano.github.io/lonradio/og-image.png" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" aria-label="Navigation">
+      <div class="brand">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <div>
+          <a href="/" style="color:inherit;text-decoration:none;">
+            <div class="brand-name">lonradio</div>
+            <div class="brand-sub muted">London, ON · live</div>
+          </a>
+        </div>
+      </div>
+      <nav class="channels">
+        <a href="/" class="channel" style="text-decoration:none;color:inherit;">
+          <span class="channel-icon">←</span>
+          <span><div class="channel-name">Back to player</div><div class="channel-freq">— · —</div></span>
+          <span></span>
+        </a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="header">
+        <div class="header-left">
+          <div class="header-tag">About</div>
+          <h1>What this is</h1>
+          <p class="muted">A side project that puts every public, non-encrypted emergency and aviation audio feed for London, Ontario into one place.</p>
+        </div>
+      </header>
+
+      <section class="about-section">
+        <h2>The short version</h2>
+        <p>
+          Three feeds actually stream audio in your browser. Two more (CYXU tower and ground) open in
+          a new tab on LiveATC because LiveATC blocks direct embedding. One channel is locked because
+          it's encrypted. Everything else is documented with where it would come from.
+        </p>
+      </section>
+
+      <section class="about-section">
+        <h2>What's included</h2>
+        <ul>
+          <li><strong>London Fire + Public Works</strong> — Broadcastify feed 34296, community receiver on City of London OneVoice P25.</li>
+          <li><strong>Middlesex County Fire Tac 1 + 3</strong> — Broadcastify feed 18244, county-wide tactical channels.</li>
+          <li><strong>Timmins Airport FSS + Local ATC</strong> — Broadcastify feed 35818, the only publicly streamable aviation feed within reasonable range.</li>
+          <li><strong>CYXU Tower</strong> — 119.4 MHz, linked out to LiveATC (they block embedding).</li>
+          <li><strong>CYXU Ground</strong> — 121.9 MHz, linked out to LiveATC.</li>
+          <li><strong>Weatheradio London</strong> — reference only; no public internet stream, requires an SDR.</li>
+        </ul>
+      </section>
+
+      <section class="about-section">
+        <h2>What's missing and why</h2>
+        <ul>
+          <li><strong>London Police Service (LPS) dispatch</strong> — encrypted on the Ontario Public Safety Radio Network (PSRN). Cannot be legally received or streamed.</li>
+          <li><strong>EMS dispatch</strong> — same: encrypted on PSRN since 2024.</li>
+          <li><strong>OPP London detachment dispatch</strong> — also PSRN-encrypted; the previous non-encrypted OPP/MTO feed (31107) is no longer online.</li>
+          <li><strong>Why LiveATC links out</strong> — LiveATC sits behind Cloudflare bot protection and explicitly prohibits hotlinking their streams. The right answer is "open in a new tab" — pretending we can proxy it would burn their bandwidth and break their TOS.</li>
+        </ul>
+      </section>
+
+      <section class="about-section">
+        <h2>How it works technically</h2>
+        <p>
+          Static HTML/CSS/JS, no backend, no build step. For streamable channels, we embed the
+          upstream provider's listen page in an iframe — that's the only cross-origin path that
+          works for public-safety feeds (Broadcastify deprecated their 3rd-party embed API, and
+          LiveATC sits behind Cloudflare bot protection). For channels that can't be embedded
+          (LiveATC, encrypted), we show a clear CTA card with a deep link. Leaflet renders the
+          coverage map. That's it.
+        </p>
+      </section>
+
+      <section class="about-section">
+        <h2>Legal and ethical notes</h2>
+        <p>
+          Listening to public-safety radio in Canada is legal. Decrypting encrypted channels is not,
+          and we don't attempt to. All streams are linked or embedded with attribution to the original
+          broadcasters — we don't proxy their bytes, we don't strip their ads, we don't claim the feeds.
+          This site is not a substitute for emergency services. In an emergency, dial 911.
+        </p>
+      </section>
+
+      <section class="about-section">
+        <h2>Sources</h2>
+        <ul>
+          <li><a href="https://www.broadcastify.com/listen/feed/34296" target="_blank" rel="noopener">Broadcastify 34296 — London Fire + Public Works</a></li>
+          <li><a href="https://www.broadcastify.com/listen/feed/18244" target="_blank" rel="noopener">Broadcastify 18244 — Middlesex County Fire Tac 1 + 3</a></li>
+          <li><a href="https://www.broadcastify.com/listen/feed/35818" target="_blank" rel="noopener">Broadcastify 35818 — Timmins Airport FSS + Local ATC</a></li>
+          <li><a href="https://www.liveatc.net/search/?icao=CYXU" target="_blank" rel="noopener">LiveATC — CYXU</a></li>
+          <li><a href="https://www.canada.ca/en/environment-climate-change/services/weatheradio/find-your-network/ontario.html" target="_blank" rel="noopener">Environment Canada — Weatheradio Ontario</a></li>
+          <li><a href="https://www.radioreference.com/db/browse/ctid/4306" target="_blank" rel="noopener">RadioReference — Middlesex County</a></li>
+        </ul>
+      </section>
+
+      <footer class="foot">
+        <p class="small muted">lonradio — built by Jorge Quijano as a side project. MIT licensed.</p>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>
