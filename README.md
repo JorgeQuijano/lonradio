@@ -2,6 +2,8 @@
 
 Live scanner and air traffic control audio for London, Ontario. Static site that embeds public listen pages from Broadcastify and LiveATC inside iframes — no API keys, no auth, no proxying.
 
+**Live:** https://jorgequijano.github.io/lonradio/
+
 ## Channels
 
 | Channel | Type | Source |
