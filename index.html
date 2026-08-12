@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>lonradio — London, Ontario live emergency & ATC audio</title>
+  <meta name="description" content="Live scanner and air traffic control audio for London, Ontario — fire, public works, OPP, weather, CYXU tower and ground." />
+  <meta property="og:title" content="lonradio — London, Ontario live audio" />
+  <meta property="og:description" content="Live scanner and ATC audio for London, Ontario." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%2300d4aa%22/></svg>" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar Nav (Beautiful UI pattern) -->
+    <aside class="sidebar" aria-label="Channels">
+      <div class="brand">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <span class="brand-name">lonradio</span>
+      </div>
+      <nav class="channels" id="channels" role="list"></nav>
+      <footer class="sidebar-foot">
+        <span class="muted">London, ON · CA</span>
+        <button id="theme-toggle" class="icon-btn" aria-label="Toggle theme">◐</button>
+      </footer>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <header class="header">
+        <div class="header-left">
+          <h1 id="now-title">Select a channel</h1>
+          <p id="now-meta" class="muted">Pick a feed from the sidebar to start listening.</p>
+        </div>
+        <div class="header-right">
+          <span class="status" id="status">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="status-text">idle</span>
+          </span>
+        </div>
+      </header>
+
+      <!-- Player -->
+      <section class="player">
+        <div class="player-visual" aria-hidden="true">
+          <canvas id="viz" width="800" height="120"></canvas>
+        </div>
+        <div class="player-controls">
+          <button id="play-btn" class="play" aria-label="Play/Pause" disabled>
+            <span id="play-icon">▶</span>
+          </button>
+          <div class="player-meta">
+            <div class="player-title" id="player-title">No channel selected</div>
+            <div class="player-sub muted" id="player-sub">—</div>
+          </div>
+          <div class="volume">
+            <span aria-hidden="true">🔊</span>
+            <input type="range" id="volume" min="0" max="1" step="0.01" value="0.7" aria-label="Volume" />
+          </div>
+        </div>
+        <!-- Loading State (Beautiful UI pattern) — shown when connecting -->
+        <div id="loading" class="loading" hidden>
+          <div class="loading-grid" aria-hidden="true"></div>
+          <div class="loading-text">Connecting <span id="loading-elapsed">0.0s</span></div>
+        </div>
+      </section>
+
+      <!-- Insight Cards row -->
+      <section class="cards" id="cards" aria-label="Channel details"></section>
+
+      <!-- Streaming Text (Beautiful UI pattern) — live transcript / call log -->
+      <section class="log-section">
+        <div class="section-head">
+          <h2>Recent transmissions</h2>
+          <span class="muted small" id="log-count">0 entries</span>
+        </div>
+        <div class="log" id="log" aria-live="polite">
+          <p class="muted small log-empty">Live event log will appear here once a feed is playing.</p>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <p class="small muted">
+          Streams: LiveATC.net (CYXU), Broadcastify (community scanners), Canada.ca (Weatheradio).
+          Police and EMS dispatch in London are encrypted on the Ontario PSRN and cannot be streamed.
+          Built as a side project. Not affiliated with any agency.
+        </p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
