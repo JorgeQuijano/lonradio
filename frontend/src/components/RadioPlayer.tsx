@@ -82,6 +82,12 @@ export function RadioPlayer() {
           </span>
         </div>
         <Chip>{now ? `${now.listeners} listener${now.listeners === 1 ? "" : "s"}` : "—"}</Chip>
+        <a
+          href="/radio"
+          className="chip hover:text-ink hover:border-line-strong transition-colors"
+        >
+          full page ↗
+        </a>
       </div>
 
       <div className="flex items-center gap-3">

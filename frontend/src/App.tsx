@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchPresets, generateTrack } from "./api";
 import { Hero } from "./components/Hero";
 import { Player } from "./components/Player";
+import { RadioPage } from "./components/RadioPage";
 import { RadioPlayer } from "./components/RadioPlayer";
 import { Sidebar } from "./components/Sidebar";
 import { Studio } from "./components/Studio";
@@ -16,6 +17,19 @@ export default function App() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isWide = useMediaQuery("(min-width: 1280px)");
+  const [route, setRoute] = useState(() => window.location.pathname);
+
+  useEffect(() => {
+    const onPop = () => setRoute(window.location.pathname);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  const navigate = useCallback((to: string) => {
+    window.history.pushState({}, "", to);
+    setRoute(to);
+    window.scrollTo(0, 0);
+  }, []);
 
   useEffect(() => {
     fetchPresets()
@@ -68,9 +82,27 @@ export default function App() {
 
   const wavUrl = track ? track.wav : null;
 
+  if (route === "/radio") {
+    return (
+      <div className="min-h-screen bg-page text-ink">
+        <TopBar route={route} navigate={navigate} />
+        <RadioPage />
+        <footer className="border-t border-line py-8">
+          <div className="max-w-[1200px] mx-auto px-5 flex flex-wrap items-center justify-between gap-3 text-[12.5px] text-ink-3">
+            <p>
+              Built for <span className="text-ink-2">lonradio</span> — algorithmic
+              lo-fi out of London, ON. Engine: music21 · numpy · pedalboard · FastAPI.
+            </p>
+            <p className="font-mono text-[11px]">same seed → same track, forever</p>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-page text-ink">
-      <TopBar />
+      <TopBar route={route} navigate={navigate} />
       <Hero onGenerate={() => void generate()} onRandomize={randomize} generating={generating} params={params} />
 
       <main className="max-w-[1200px] mx-auto px-5 pb-20">

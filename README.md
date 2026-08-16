@@ -73,8 +73,13 @@ the start of the current track; ~6 min of history is buffered.
 
 - Starts with the server; disable with `LONRADIO_RADIO=0`.
 - Requires `ffmpeg` on PATH (MP3 encoding).
-- Browsers play it with a plain `<audio src="/api/radio">`; the studio's
-  "Lonradio 24/7" card shows live now-playing metadata.
+- The DJ is **real-time paced**: "on air" metadata always matches what
+  listeners hear (the engine renders ~6× faster than playback, so the DJ
+  waits out the remainder between tracks).
+- Browsers play it with a plain `<audio src="/api/radio">`. The studio has a
+  compact radio card; `/radio` is a dedicated lean-back page with live
+  progress, upcoming-track preview (names are deterministic from seeds),
+  recently played, listener count and a WebAudio visualizer.
 
 ## Determinism
 

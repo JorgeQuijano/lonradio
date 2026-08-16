@@ -4,7 +4,13 @@
 import { useEffect, useRef, useState } from "react";
 import { applyTheme, currentTheme, THEMES } from "../themes";
 
-export function TopBar() {
+export function TopBar({
+  route = "/",
+  navigate,
+}: {
+  route?: string;
+  navigate?: (to: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState(currentTheme());
   const ref = useRef<HTMLDivElement>(null);
@@ -18,10 +24,20 @@ export function TopBar() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
+  const go = (to: string) => {
+    if (navigate) navigate(to);
+    else window.location.href = to;
+  };
+
+  const tabs = [
+    { to: "/", label: "Studio" },
+    { to: "/radio", label: "Radio" },
+  ];
+
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-page/80 backdrop-blur-md">
       <div className="max-w-[1200px] mx-auto px-5 h-14 flex items-center justify-between gap-4">
-        <a href="#top" className="flex items-center gap-2.5 group">
+        <a href="#top" className="flex items-center gap-2.5 group" onClick={(e) => { e.preventDefault(); go("/"); }}>
           <span className="w-6 h-6 rounded-md bg-canvas border border-line grid place-items-center group-hover:border-line-strong transition-colors">
             <span className="w-2.5 h-2.5 rounded-full bg-accent shadow-[0_0_10px_var(--accent)]" />
           </span>
@@ -29,6 +45,23 @@ export function TopBar() {
             lonradio<span className="text-ink-3 font-normal">/studio</span>
           </span>
         </a>
+
+        <nav className="flex items-center gap-1 -ml-2">
+          {tabs.map((t) => (
+            <button
+              key={t.to}
+              type="button"
+              onClick={() => go(t.to)}
+              className={`px-3 py-1.5 rounded-md text-[13px] transition-colors ${
+                route === t.to
+                  ? "text-ink bg-hover font-medium"
+                  : "text-ink-2 hover:text-ink hover:bg-hover/60"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
 
         <div className="flex items-center gap-2" ref={ref}>
           <a

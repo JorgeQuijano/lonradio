@@ -76,7 +76,24 @@ class RadioDJ:
                 "listeners": self._listeners,
                 "uptime_s": int(time.time() - self._started),
                 "tracks_played": self._played,
+                "upcoming": self._upcoming(3),
             }
+
+    def _upcoming(self, n: int) -> List[dict]:
+        """Preview of the next tracks — names are deterministic from seeds,
+        so no rendering is needed to know what's coming."""
+        out: List[dict] = []
+        cur = self._params
+        for _ in range(n):
+            out.append({
+                "name": cur.track_name(),
+                "seed": cur.seed,
+                "key": f"{cur.key} {cur.mode}",
+                "bpm": cur.bpm,
+                "bars": cur.bars,
+            })
+            cur = self._next_params(cur)
+        return out
 
     def stream(self):
         """Infinite byte generator for one HTTP listener."""
@@ -91,6 +108,7 @@ class RadioDJ:
     # ------------------------------------------------------------- internals
     def _run(self) -> None:
         while not self._stop.is_set():
+            t0 = time.time()
             try:
                 r = render(self._params, RADIO_DIR)
                 mp3 = self._pad_and_encode(r.wav_path)
@@ -103,9 +121,16 @@ class RadioDJ:
                     "chords": r.chords,
                     "duration_s": round(r.duration_s, 2),
                     "rendered_ms": r.took_ms,
+                    "started_at": time.time(),
                 }
                 self._publish(mp3, meta)
                 self._params = self._next_params(self._params)
+                # real-time pacing: the engine renders ~6x faster than
+                # playback, so wait out the remainder so "on air" metadata
+                # always matches what listeners actually hear.
+                wait = (t0 + r.duration_s + GAP_S) - time.time()
+                if wait > 0:
+                    self._stop.wait(wait)
             except Exception as e:  # keep the radio alive no matter what
                 print(f"[radio] error: {e}", flush=True)
                 time.sleep(2)
@@ -127,19 +152,26 @@ class RadioDJ:
             self._cond.notify_all()
 
     def _read(self):
+        """Iterate chunks from the current track's start, waiting for new
+        ones. Never yields while holding the condition lock."""
         with self._cond:
             if not self._chunks:
-                # nothing yet — wait for the first track (usually < 5s)
                 self._cond.wait(timeout=30)
-            i = 0 if not self._chunks else (self._current_idx or 0)
-            i = max(0, min(i, len(self._chunks) - 1))
-            while not self._stop.is_set():
-                while i < len(self._chunks):
-                    yield self._chunks[i].data
+            if not self._chunks:
+                return
+            i = max(0, min(self._current_idx or 0, len(self._chunks) - 1))
+        while not self._stop.is_set():
+            with self._cond:
+                if i < len(self._chunks):
+                    data = self._chunks[i].data
                     i += 1
-                if self._stop.is_set():
+                elif self._stop.is_set():
                     return
-                self._cond.wait(timeout=5)
+                else:
+                    data = None
+                    self._cond.wait(timeout=5)
+            if data is not None:
+                yield data
 
     # ---------------------------------------------------------------- tools
     @staticmethod

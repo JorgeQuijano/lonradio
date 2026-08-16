@@ -21,16 +21,22 @@ from .params import TrackParams
 _SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 _FLAT = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"]
 
+# any accepted key name -> pitch class (0 = C). Supports both spellings.
+_NAME_TO_PC = {
+    "C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3, "E": 4, "F": 5,
+    "F#": 6, "Gb": 6, "G": 7, "G#": 8, "Ab": 8, "A": 9, "A#": 10, "Bb": 10, "B": 11,
+}
+
 MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11]
 MINOR_INTERVALS = [0, 2, 3, 5, 7, 8, 10]
 
 # keys spelled with flats (minor and major)
 _FLAT_KEYS = {"Db", "Eb", "F", "Ab", "Bb", "C", "D", "G"}  # major
-_FLAT_KEYS_MINOR = {"Bb", "C", "D", "Eb", "F", "G", "Ab"}  # minor
+_FLAT_KEYS_MINOR = {"Bb", "C", "D", "Eb", "F", "G", "Ab", "Db"}  # minor
 
 
 def _spelling(key: str, mode: str) -> List[str]:
-    root = _SHARP.index(key)
+    root = _NAME_TO_PC[key]
     intervals = MINOR_INTERVALS if mode == "minor" else MAJOR_INTERVALS
     use_flat = (key in _FLAT_KEYS_MINOR) if mode == "minor" else (key in _FLAT_KEYS)
     table = _FLAT if use_flat else _SHARP
@@ -39,7 +45,7 @@ def _spelling(key: str, mode: str) -> List[str]:
 
 def scale_degrees(key: str, mode: str) -> List[int]:
     """MIDI pitch classes (0=C) for scale degrees 1..7."""
-    root = _SHARP.index(key)
+    root = _NAME_TO_PC[key]
     intervals = MINOR_INTERVALS if mode == "minor" else MAJOR_INTERVALS
     return [(root + i) % 12 for i in intervals]
 
