@@ -147,7 +147,35 @@ const $themeToggle = document.getElementById("theme-toggle");
 const $cards = document.getElementById("cards");
 const $clock = document.getElementById("clock");
 
-// ---------- Sidebar ----------
+// ---------- Sidebar (drawer) ----------
+const $sidebar = document.getElementById("sidebar");
+const $backdrop = document.getElementById("sidebar-backdrop");
+const $menuBtn = document.getElementById("menu-btn");
+const $sidebarClose = document.getElementById("sidebar-close");
+
+function openSidebar() {
+  if (!$sidebar) return;
+  $sidebar.classList.add("open");
+  if ($backdrop) $backdrop.classList.add("open");
+  document.documentElement.classList.add("sidebar-open");
+  document.body.classList.add("sidebar-open");
+  if ($menuBtn) $menuBtn.setAttribute("aria-expanded", "true");
+}
+function closeSidebar() {
+  if (!$sidebar) return;
+  $sidebar.classList.remove("open");
+  if ($backdrop) $backdrop.classList.remove("open");
+  document.documentElement.classList.remove("sidebar-open");
+  document.body.classList.remove("sidebar-open");
+  if ($menuBtn) $menuBtn.setAttribute("aria-expanded", "false");
+}
+if ($menuBtn) $menuBtn.addEventListener("click", openSidebar);
+if ($sidebarClose) $sidebarClose.addEventListener("click", closeSidebar);
+if ($backdrop) $backdrop.addEventListener("click", closeSidebar);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeSidebar();
+});
+
 function renderSidebar() {
   for (const [group, el] of Object.entries(GROUPS)) {
     if (!el) continue;
@@ -174,6 +202,8 @@ function renderSidebar() {
     el.addEventListener("click", () => {
       if (el.disabled) return;
       selectChannel(el.dataset.id);
+      // Auto-close the drawer on mobile after a channel is picked
+      if (window.matchMedia("(max-width: 820px)").matches) closeSidebar();
     });
   });
 }
@@ -275,9 +305,6 @@ function showCta(c) {
   $ctaSub.textContent = sub;
   $ctaLink.href = c.sourceUrl || "#";
   $ctaSource.textContent = c.sourceLabel || "source";
-  $ctaLink.textContent = "";
-  $ctaLink.appendChild(document.createTextNode(""));
-  const linkText = document.createTextNode("");
   $ctaLink.innerHTML = `Open <span>${c.sourceLabel || "source"}</span> ↗`;
 
   // Pop out button opens in a small window for quick toggle

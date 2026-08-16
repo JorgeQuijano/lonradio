@@ -18,9 +18,10 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
   <div class="app">
     <!-- Sidebar Nav -->
-    <aside class="sidebar" aria-label="Channels">
+    <aside class="sidebar" id="sidebar" aria-label="Channels">
       <div class="brand">
         <span class="brand-dot" aria-hidden="true"></span>
         <div>
@@ -29,6 +30,7 @@
             <div class="brand-sub muted">London, ON · live</div>
           </a>
         </div>
+        <button id="sidebar-close" class="icon-btn sidebar-close" aria-label="Close menu" type="button">✕</button>
       </div>
 
       <div class="sidebar-section">
@@ -63,7 +65,10 @@
     <main class="main">
       <header class="header">
         <div class="header-left">
-          <div class="header-tag" id="header-tag">Stream</div>
+          <div class="header-row">
+            <button id="menu-btn" class="menu-btn" aria-label="Open channels menu" aria-controls="sidebar" aria-expanded="false" type="button">☰</button>
+            <div class="header-tag" id="header-tag">Stream</div>
+          </div>
           <h1 id="now-title">London Fire + Public Works</h1>
           <p id="now-meta" class="muted">Fire Dispatch · Fire-Tac · Public Works · City of London OneVoice P25</p>
         </div>

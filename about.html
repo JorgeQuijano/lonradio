@@ -15,8 +15,9 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
   <div class="app">
-    <aside class="sidebar" aria-label="Navigation">
+    <aside class="sidebar" id="sidebar" aria-label="Navigation">
       <div class="brand">
         <span class="brand-dot" aria-hidden="true"></span>
         <div>
@@ -25,6 +26,7 @@
             <div class="brand-sub muted">London, ON · live</div>
           </a>
         </div>
+        <button id="sidebar-close" class="icon-btn sidebar-close" aria-label="Close menu" type="button">✕</button>
       </div>
       <nav class="channels">
         <a href="index.html" class="channel" style="text-decoration:none;color:inherit;">
@@ -38,7 +40,10 @@
     <main class="main">
       <header class="header">
         <div class="header-left">
-          <div class="header-tag">About</div>
+          <div class="header-row">
+            <button id="menu-btn" class="menu-btn" aria-label="Open navigation menu" aria-controls="sidebar" aria-expanded="false" type="button">☰</button>
+            <div class="header-tag">About</div>
+          </div>
           <h1>What this is</h1>
           <p class="muted">A side project that puts every public, non-encrypted emergency and aviation audio feed for London, Ontario into one place.</p>
         </div>
@@ -114,5 +119,34 @@
       </footer>
     </main>
   </div>
+
+  <script>
+    // Mirror the index drawer behavior on the about page
+    (function () {
+      const $sidebar = document.getElementById("sidebar");
+      const $backdrop = document.getElementById("sidebar-backdrop");
+      const $menuBtn = document.getElementById("menu-btn");
+      const $sidebarClose = document.getElementById("sidebar-close");
+      if (!$sidebar || !$menuBtn) return;
+      function open() {
+        $sidebar.classList.add("open");
+        if ($backdrop) $backdrop.classList.add("open");
+        document.documentElement.classList.add("sidebar-open");
+        document.body.classList.add("sidebar-open");
+        $menuBtn.setAttribute("aria-expanded", "true");
+      }
+      function close() {
+        $sidebar.classList.remove("open");
+        if ($backdrop) $backdrop.classList.remove("open");
+        document.documentElement.classList.remove("sidebar-open");
+        document.body.classList.remove("sidebar-open");
+        $menuBtn.setAttribute("aria-expanded", "false");
+      }
+      $menuBtn.addEventListener("click", open);
+      if ($sidebarClose) $sidebarClose.addEventListener("click", close);
+      if ($backdrop) $backdrop.addEventListener("click", close);
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+    })();
+  </script>
 </body>
 </html>
