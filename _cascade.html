@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html><head>
+<style>
+.player-iframe { width: 100%; height: 480px; border: 0; display: block; background: red; }
+@media (max-width: 480px) {
+  .player-iframe { height: auto; aspect-ratio: 4 / 5; min-height: 320px; background: green; }
+}
+</style>
+</head><body>
+<iframe class="player-iframe"></iframe>
+<script>
+  const f = document.querySelector('.player-iframe');
+  const cs = getComputedStyle(f);
+  const b = f.getBoundingClientRect();
+  document.title = JSON.stringify({
+    height: cs.height, aspectRatio: cs.aspectRatio, width: cs.width,
+    computedMinHeight: cs.minHeight,
+    rect: {w: b.width, h: b.height},
+    matches: window.matchMedia('(max-width: 480px)').matches,
+    vw: window.innerWidth,
+  });
+</script>
+</body></html>

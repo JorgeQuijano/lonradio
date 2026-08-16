@@ -69,8 +69,12 @@ code {
   z-index: 90;
   opacity: 0;
   transition: opacity 0.18s ease;
+  pointer-events: none;
 }
-.sidebar-backdrop.open { opacity: 1; }
+.sidebar-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
 .menu-btn {
   display: none;
   background: transparent;
@@ -131,7 +135,7 @@ code {
   .header h1 { font-size: 20px; }
   .header-right { justify-content: space-between; }
   .player { min-height: 0; }
-  .player-iframe { height: auto; aspect-ratio: 4 / 5; min-height: 320px; }
+  .player-iframe { height: auto !important; aspect-ratio: 4 / 5; min-height: 320px; }
   .player-cta { min-height: 0; padding: 24px 16px; aspect-ratio: 4 / 5; min-height: 320px; }
   .cta-icon { font-size: 44px; }
   .cta-title { font-size: 16px; }
