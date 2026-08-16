@@ -210,8 +210,8 @@ def render_drums(drum_events, bpm: float, rng: random.Random, duration_s: float,
         end = min(start + len(buf), n)
         pan = _DRUM_PAN[d.kind]
         g = 0.5 * (1 - pan), 0.5 * (1 + pan)
-        left[start:end] += buf[: end - start] * g[0]
-        right[start:end] += buf[: end - start] * g[1]
+        left[start:end] += buf[: end - start] * g[0] * d.vel
+        right[start:end] += buf[: end - start] * g[1] * d.vel
     return np.column_stack([left, right])
 
 

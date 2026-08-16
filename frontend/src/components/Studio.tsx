@@ -30,7 +30,7 @@ export function Studio({
       <Section
         num="01"
         title="Harmony"
-        subtitle="Key, mood and how chords move — the bed everything sits on."
+        subtitle="Key, mood and chord movement — auto-arranged into sections (intro → A → B → A' → outro) that change every 30-45s."
         code={jsonOf({
           key: params.key, mode: params.mode, progression: params.progression,
           chord_ext: params.chord_ext, voicing: params.voicing,
@@ -58,7 +58,7 @@ export function Studio({
             options={VOICINGS}
             onChange={(v) => set({ voicing: v })}
           />
-          <SelectField label="Bars" value={String(params.bars)} options={["2","4","6","8","12","16","24","32"]} onChange={(v) => set({ bars: Number(v) })} />
+          <SelectField label="Bars" value={String(params.bars)} options={["8","12","16","24","32","48","64"]} onChange={(v) => set({ bars: Number(v) })} />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <SliderField label="Tempo" value={params.bpm} min={40} max={140} step={1} onChange={(v) => set({ bpm: v })} format={(v) => `${v} bpm`} />

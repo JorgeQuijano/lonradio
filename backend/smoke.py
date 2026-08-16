@@ -59,10 +59,19 @@ def main() -> None:
     same = r.wav_path.read_bytes() == r2.wav_path.read_bytes()
     print(f"  deterministic: {same}")
 
+    # arrangement: long tracks must have multiple distinct sections
+    long = TrackParams(bpm=80, bars=48, seed=7)
+    rl = render(long, out)
+    names = [s["name"] for s in rl.sections]
+    drums = {s["drums"] for s in rl.sections}
+    print(f"  long track: {rl.duration_s:.0f}s sections={names} drums={drums}")
+    sections_ok = len(rl.sections) >= 4 and len(drums) >= 2
+
     ok = (
         s["rms_music"] > 0.01 and s["rms_last_chord"] > 0.005
         and s["bass_share"] > 0.15 and s["lr_corr"] < 0.995
         and abs(s["dur_s"] - r.duration_s) < 3.0 and same  # +2s decay tail
+        and sections_ok
     )
     print("SMOKE:", "PASS" if ok else "FAIL")
 

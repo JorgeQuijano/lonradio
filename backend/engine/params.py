@@ -48,8 +48,8 @@ class TrackParams:
             errs.append(f"mode must be one of {MODES}")
         if not (40 <= self.bpm <= 140):
             errs.append("bpm must be 40-140")
-        if not (2 <= self.bars <= 32):
-            errs.append("bars must be 2-32")
+        if not (2 <= self.bars <= 72):
+            errs.append("bars must be 2-72")
         if self.progression not in PROGRESSIONS:
             errs.append(f"progression must be one of {PROGRESSIONS}")
         if self.chord_ext not in CHORD_EXTS:

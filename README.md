@@ -72,10 +72,16 @@ MP3 via ffmpeg, and broadcasts to every connected listener. Listeners join at
 the start of the current track; ~6 min of history is buffered.
 
 - Starts with the server; disable with `LONRADIO_RADIO=0`.
-- Requires `ffmpeg` on PATH (MP3 encoding).
+- Requires `ffmpeg` on PATH (MP3 + HLS AAC encoding).
 - The DJ is **real-time paced**: "on air" metadata always matches what
-  listeners hear (the engine renders ~6× faster than playback, so the DJ
+  listeners hear (the engine renders ~5× faster than playback, so the DJ
   waits out the remainder between tracks).
+- **Tracks are 3–7 minutes**, auto-arranged into sections (intro → A → B →
+  A′ → outro) that change every 30–45s: drums, bass style, melody density,
+  chord register and energy shift per section.
+- **Two stream formats**: `/api/radio` raw MP3 (curl, simple players) and
+  `/api/radio/hls/playlist.m3u8` (one AAC segment per track) — native on
+  Safari, hls.js elsewhere, with self-healing reconnect logic.
 - Browsers play it with a plain `<audio src="/api/radio">`. The studio has a
   compact radio card; `/radio` is a dedicated lean-back page with live
   progress, upcoming-track preview (names are deterministic from seeds),

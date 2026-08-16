@@ -148,6 +148,20 @@ class NoteEvent:
 class DrumEvent:
     start: float       # beats
     kind: str          # kick | snare | hatc | hato | rim
+    vel: float = 1.0   # section energy
+
+
+@dataclasses.dataclass
+class Section:
+    """One block of a track's arrangement. Sections change every 30-45s."""
+    name: str            # intro | A | B | A' | outro
+    start_bar: int
+    bars: int
+    drums: str
+    bass: str
+    melody: str
+    ep_shift: int = 0    # +12 = lift (chord tones up an octave)
+    energy: float = 1.0  # velocity multiplier
 
 
 @dataclasses.dataclass
@@ -160,6 +174,7 @@ class Composition:
     notes: List[NoteEvent]
     drums: List[DrumEvent]
     melody: List[NoteEvent]
+    sections: List[Section] = dataclasses.field(default_factory=list)
 
     @property
     def duration_beats(self) -> float:
@@ -182,11 +197,68 @@ class Composition:
 # composition
 # ---------------------------------------------------------------------------
 
+def _build_sections(bars: int, rng: random.Random, p: TrackParams) -> List[Section]:
+    """Arrangement plan: intro -> A -> B (lift) -> A' -> outro.
+
+    Section lengths in bars land in the 24-48s range at lo-fi tempos, so the
+    feel changes roughly every 30-45 seconds as requested."""
+    if bars <= 16:
+        return [Section("A", 0, bars, "boom-bap", p.bass_style, p.melody, 0, 0.95)]
+
+    intro_bars, outro_bars = 8, 8
+    core = bars - intro_bars - outro_bars
+
+    def blk(n: float, cap: int = 20) -> int:
+        return min(cap, max(4, round(n / 4) * 4))
+
+    a = blk(core * 0.35)
+    b = blk(core * 0.30)
+    a2 = max(4, core - a - b)
+    if a2 > 24:  # very long tracks: cap the reprise, extend the lift instead
+        b += a2 - 24
+        a2 = 24
+    # rebalance so the plan exactly fills the track
+    overflow = (intro_bars + outro_bars + a + b + a2) - bars
+    if overflow > 0:
+        a2 = max(4, a2 - overflow)
+    outro_bars += (intro_bars + outro_bars + a + b + a2) - bars
+    if outro_bars < 4:
+        a2 += outro_bars - 4
+        outro_bars = 4
+
+    plan = [
+        Section("intro", 0, intro_bars,
+                rng.choice(["brushed", "none"]),
+                rng.choice(["pedal", "root-eighths"]),
+                rng.choice(["none", "none", "sparse"]), 0, 0.80),
+        Section("A", intro_bars, a,
+                "boom-bap", p.bass_style, p.melody, 0, 1.00),
+        Section("B", intro_bars + a, b,
+                rng.choice(["four-floor", "boom-bap", "brushed"]),
+                rng.choice(["walk", "octave-bounce", "syncopated"]),
+                "flowing", 12, 1.12),
+        Section("A'", intro_bars + a + b, a2,
+                "boom-bap", p.bass_style, p.melody, 0, 0.98),
+        Section("outro", bars - outro_bars, outro_bars,
+                rng.choice(["brushed", "none"]),
+                "pedal", "none", 0, 0.70),
+    ]
+    return plan
+
+
+def _sec_at(sections: List[Section], bar: int) -> Section:
+    for s in sections:
+        if s.start_bar <= bar < s.start_bar + s.bars:
+            return s
+    return sections[-1]
+
+
 def compose(p: TrackParams) -> Composition:
     rng = p.rng()
     scale = scale_degrees(p.key, p.mode)
     preset = (_PRESETS_MINOR if p.mode == "minor" else _PRESETS_MAJOR)[p.progression]
     root_pc = scale[0]
+    sections = _build_sections(p.bars, rng, p)
 
     # ---- chord sequence over bars ----
     bars = p.bars
@@ -210,8 +282,9 @@ def compose(p: TrackParams) -> Composition:
         chord_data.append((int(start), degree, quality))
 
     # ---- voicing: map chord pitch classes -> playable MIDI notes ----
-    def voice(tones: List[int], ext: str) -> Tuple[int, List[int]]:
-        """Return (bass_root_midi, ep_midi_notes) for a chord's pitch classes."""
+    def voice(tones: List[int], ext: str, shift: int = 0) -> Tuple[int, List[int]]:
+        """Return (bass_root_midi, ep_midi_notes) for a chord's pitch classes.
+        `shift` lifts the chord tones (section B lift = +12); root stays low."""
         root = tones[0]
         # root placed low (C1..B2)
         root_midi = 24 + 12 * (root // 12) + root % 12
@@ -260,29 +333,30 @@ def compose(p: TrackParams) -> Composition:
     ep_events: List[NoteEvent] = []
     bass_events: List[NoteEvent] = []
     bass_root_midis: List[int] = []
-    for (start, dur, _name), (_, degree, quality) in zip(chords, chord_data):
+    for bar, ((start, dur, _name), (_, degree, quality)) in enumerate(zip(chords, chord_data)):
+        sec = _sec_at(sections, bar)
         tones = build_chord(scale, degree, quality)
-        root_midi, notes = voice(tones, p.chord_ext)
+        root_midi, notes = voice(tones, p.chord_ext, sec.ep_shift)
         bass_root_midis.append(root_midi)
-        vel = int(74 + rng.uniform(-8, 8))
+        vel = int(74 * sec.energy + rng.uniform(-8, 8))
         ev = NoteEvent("ep", start + rng.uniform(-0.01, 0.01), dur * 0.98, notes[0], vel)
         ev.tones = notes
         ev.root = root_midi
         ep_events.append(ev)
 
     # ---- bass patterns ----
-    bass_events = _make_bass(p, rng, chord_data, bass_root_midis)
+    bass_events = _make_bass(p, rng, chord_data, bass_root_midis, sections)
 
     # ---- drums ----
-    drum_events = _make_drums(p, rng)
+    drum_events = _make_drums(p, rng, sections)
 
     # ---- melody ----
-    melody_events = _make_melody(p, rng, scale, chord_data)
+    melody_events = _make_melody(p, rng, scale, chord_data, sections)
 
     return Composition(
         key=p.key, mode=p.mode, bpm=p.bpm, bars=bars,
         chords=chords, notes=ep_events + bass_events,
-        drums=drum_events, melody=melody_events,
+        drums=drum_events, melody=melody_events, sections=sections,
     )
 
 
@@ -296,16 +370,14 @@ def _swing_offbeat(beat: float, swing: float) -> float:
 
 def _make_bass(p: TrackParams, rng: random.Random,
                chord_data: List[Tuple[int, int, str]],
-               roots: List[int]) -> List[NoteEvent]:
+               roots: List[int], sections: List[Section]) -> List[NoteEvent]:
     ev: List[NoteEvent] = []
-    style = p.bass_style
     scale = scale_degrees(p.key, p.mode)
 
-    def root_for(bar: int) -> int:
-        return roots[bar]
-
     for bar, (start, degree, _q) in enumerate(chord_data):
-        root = root_for(bar)
+        style = _sec_at(sections, bar).bass
+        energy = _sec_at(sections, bar).energy
+        root = roots[bar]
         bar_start = start
         if style == "root-eighths":
             for i in range(8):  # 8th notes
@@ -315,7 +387,7 @@ def _make_bass(p: TrackParams, rng: random.Random,
                 if i % 2 == 1 and rng.random() < 0.6:
                     note = root + 12
                 ev.append(NoteEvent("bass", _swing_offbeat(beat, p.swing), 0.46,
-                                    note, vel + rng.randint(-4, 4)))
+                                    note, int(vel * energy) + rng.randint(-4, 4)))
         elif style == "walk":
             target = roots[(bar + 1) % len(roots)]
             current = root
@@ -328,17 +400,19 @@ def _make_bass(p: TrackParams, rng: random.Random,
                     nxt = current + (step if diff > 0 else -step)
                     if abs(nxt - target) < 2:
                         nxt = target
-                    ev.append(NoteEvent("bass", beat, 0.9, current, 70 + rng.randint(-5, 5)))
+                    ev.append(NoteEvent("bass", beat, 0.9, current,
+                                        int(70 * energy) + rng.randint(-5, 5)))
                     current = nxt
                 else:
-                    ev.append(NoteEvent("bass", beat, 0.9, target, 74 + rng.randint(-5, 5)))
+                    ev.append(NoteEvent("bass", beat, 0.9, target,
+                                        int(74 * energy) + rng.randint(-5, 5)))
         elif style == "octave-bounce":
             for i in range(8):
                 beat = bar_start + i * 0.5
                 note = root if i % 2 == 0 else root + 12
                 vel = 78 if i % 2 == 0 else 58
                 ev.append(NoteEvent("bass", _swing_offbeat(beat, p.swing), 0.4,
-                                    note, vel + rng.randint(-4, 4)))
+                                    note, int(vel * energy) + rng.randint(-4, 4)))
         elif style == "syncopated":
             pattern = [1, 0, 0, 1, 0, 1, 0, 1]  # 8ths; hits with rests
             for i, hit in enumerate(pattern):
@@ -350,72 +424,80 @@ def _make_bass(p: TrackParams, rng: random.Random,
                     note = root + 12
                 vel = 74 if i % 2 == 0 else 64
                 ev.append(NoteEvent("bass", _swing_offbeat(beat, p.swing), 0.42,
-                                    note, vel + rng.randint(-4, 4)))
+                                    note, int(vel * energy) + rng.randint(-4, 4)))
         elif style == "pedal":
             tonic = roots[0]
-            ev.append(NoteEvent("bass", bar_start, 3.8, tonic, 66))
+            ev.append(NoteEvent("bass", bar_start, 3.8, tonic, int(66 * energy)))
             if bar % 2 == 1:
-                ev.append(NoteEvent("bass", bar_start + 3.0, 0.9, tonic + 7, 58))
+                ev.append(NoteEvent("bass", bar_start + 3.0, 0.9, tonic + 7,
+                                    int(58 * energy)))
     return ev
 
 
-def _make_drums(p: TrackParams, rng: random.Random) -> List[DrumEvent]:
+def _make_drums(p: TrackParams, rng: random.Random,
+                sections: List[Section]) -> List[DrumEvent]:
     ev: List[DrumEvent] = []
-    style = p.drums
-    if style == "none":
-        return ev
     swing = p.swing
     for bar in range(p.bars):
+        sec = _sec_at(sections, bar)
+        style = sec.drums
+        if style == "none":
+            continue
+        energy = sec.energy
         b0 = bar * 4.0
         if style == "boom-bap":
             for i in range(16):
                 beat = b0 + i * 0.25
                 if i in (0, 7, 10):
-                    ev.append(DrumEvent(beat, "kick"))
+                    ev.append(DrumEvent(beat, "kick", energy))
                 if i in (4, 12):
-                    ev.append(DrumEvent(beat, "snare"))
+                    ev.append(DrumEvent(beat, "snare", energy))
                 if i % 2 == 0:
-                    ev.append(DrumEvent(_swing_offbeat(beat, swing), "hatc"))
+                    ev.append(DrumEvent(_swing_offbeat(beat, swing), "hatc", energy))
                 if i == 14 and rng.random() < 0.4:
-                    ev.append(DrumEvent(beat, "hato"))
+                    ev.append(DrumEvent(beat, "hato", energy))
                 if i == 6 and rng.random() < 0.5:
-                    ev.append(DrumEvent(beat, "rim"))
+                    ev.append(DrumEvent(beat, "rim", energy))
         elif style == "brushed":
             for i in range(16):
                 beat = b0 + i * 0.25
                 if i in (0, 8):
-                    ev.append(DrumEvent(beat, "kick"))
+                    ev.append(DrumEvent(beat, "kick", energy))
                 if i in (4, 12):
-                    ev.append(DrumEvent(beat, "snare"))
+                    ev.append(DrumEvent(beat, "snare", energy))
                 if i % 4 == 0:
-                    ev.append(DrumEvent(_swing_offbeat(beat, swing), "hatc"))
+                    ev.append(DrumEvent(_swing_offbeat(beat, swing), "hatc", energy))
                 if i % 8 == 6:
-                    ev.append(DrumEvent(beat, "rim"))
+                    ev.append(DrumEvent(beat, "rim", energy))
                 if i % 4 == 2 and rng.random() < 0.5:
-                    ev.append(DrumEvent(_swing_offbeat(beat, swing), "hatc"))
+                    ev.append(DrumEvent(_swing_offbeat(beat, swing), "hatc", energy))
         elif style == "four-floor":
             for i in range(16):
                 beat = b0 + i * 0.25
                 if i % 4 == 0:
-                    ev.append(DrumEvent(beat, "kick"))
+                    ev.append(DrumEvent(beat, "kick", energy))
                 if i in (4, 12):
-                    ev.append(DrumEvent(beat, "snare"))
+                    ev.append(DrumEvent(beat, "snare", energy))
                 if i % 2 == 0:
-                    ev.append(DrumEvent(_swing_offbeat(beat, swing), "hatc"))
+                    ev.append(DrumEvent(_swing_offbeat(beat, swing), "hatc", energy))
     return ev
 
 
 def _make_melody(p: TrackParams, rng: random.Random, scale: List[int],
-                 chord_data: List[Tuple[int, int, str]]) -> List[NoteEvent]:
+                 chord_data: List[Tuple[int, int, str]],
+                 sections: List[Section]) -> List[NoteEvent]:
     ev: List[NoteEvent] = []
-    if p.melody == "none":
-        return ev
     pentatonic = [scale[0], scale[1], scale[2], scale[4], scale[5]]  # 1 2 3 5 6
     register = 72  # C5
     current = register + rng.choice([0, 2, 4, 7, 9])
     for bar, (start, degree, _q) in enumerate(chord_data):
+        sec = _sec_at(sections, bar)
+        mode = sec.melody
+        if mode == "none":
+            continue
+        energy = sec.energy
         b0 = start
-        if p.melody == "sparse":
+        if mode == "sparse":
             # 1-2 short motifs per bar, mostly rests
             for i in range(2):
                 if rng.random() < 0.6:
@@ -423,7 +505,7 @@ def _make_melody(p: TrackParams, rng: random.Random, scale: List[int],
                     dur = rng.choice([0.5, 1.0, 1.5])
                     current = _melody_step(rng, current, pentatonic, register)
                     ev.append(NoteEvent("melody", on, dur, current,
-                                        62 + rng.randint(-6, 10)))
+                                        int(62 * energy) + rng.randint(-6, 10)))
         else:  # flowing: continuous 8th-note line with contour
             for i in range(8):
                 if rng.random() < 0.82:
@@ -432,7 +514,7 @@ def _make_melody(p: TrackParams, rng: random.Random, scale: List[int],
                     if rng.random() < 0.35:
                         current = _melody_step(rng, current, pentatonic, register)
                     ev.append(NoteEvent("melody", _swing_offbeat(on, p.swing * 0.6),
-                                        dur, current, 58 + rng.randint(-5, 12)))
+                                        dur, current, int(58 * energy) + rng.randint(-5, 12)))
     return ev
 
 
@@ -515,7 +597,7 @@ def export_midi(c: Composition, path: str) -> None:
         n = note.Note(GM[d.kind])
         n.quarterLength = 0.24
         n.offset = d.start
-        n.volume.velocity = 84
+        n.volume.velocity = int(84 * d.vel)
         drum.append(n)
     score.append(drum)
 

@@ -2,6 +2,7 @@
    upcoming preview, history, and a WebAudio visualizer. */
 
 import { useEffect, useRef, useState } from "react";
+import { useRadioAudio } from "../useRadioAudio";
 import { Chip } from "./controls";
 
 interface TrackMeta {
@@ -14,6 +15,7 @@ interface TrackMeta {
   duration_s: number;
   started_at: number;
   rendered_ms?: number;
+  sections?: { name: string; start_s: number; dur_s: number; drums: string; bass: string; melody: string }[];
 }
 
 interface UpcomingMeta {
@@ -46,13 +48,11 @@ function fmtUptime(s: number) {
 }
 
 export function RadioPage() {
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const { audioRef, playing, toggle, error } = useRadioAudio();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const [playing, setPlaying] = useState(false);
   const [volume, setVolume] = useState(0.9);
   const [now, setNow] = useState<RadioNow | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [clock, setClock] = useState(Date.now());
 
   // now-playing poll
@@ -143,18 +143,9 @@ export function RadioPage() {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  const toggle = () => {
-    const a = audioRef.current;
-    if (!a) return;
+  const togglePlay = () => {
     ensureAnalyser();
-    if (a.paused) {
-      a.play()
-        .then(() => setPlaying(true))
-        .catch((e) => setError(`Stream failed to start: ${e.message}`));
-    } else {
-      a.pause();
-      setPlaying(false);
-    }
+    toggle();
   };
 
   const cur = now?.current;
@@ -218,7 +209,7 @@ export function RadioPage() {
           <button
             type="button"
             className="w-14 h-14 shrink-0 rounded-full grid place-items-center bg-accent text-black shadow-btn hover:brightness-110 transition-all active:scale-95"
-            onClick={toggle}
+            onClick={togglePlay}
             aria-label={playing ? "Pause stream" : "Play stream"}
           >
             {playing ? (
@@ -250,6 +241,27 @@ export function RadioPage() {
           </div>
         )}
 
+        {/* structure strip — the section currently on air */}
+        {cur && cur.sections && cur.sections.length > 1 && (
+          <div className="mt-4">
+            <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink-3 mb-1.5">
+              Structure
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {cur.sections.map((s, i) => {
+                const elapsed = clock / 1000 - cur.started_at;
+                const active = elapsed >= s.start_s && elapsed < s.start_s + s.dur_s;
+                return (
+                  <span key={i} className={`chip !py-0.5 !text-[11px] ${active ? "chip-accent" : ""}`}>
+                    {s.name}
+                    {active ? ` · ${s.drums}` : ""}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* chords */}
         {cur && (
           <div className="mt-4">
@@ -257,9 +269,14 @@ export function RadioPage() {
               Chords
             </p>
             <div className="flex flex-wrap gap-1.5">
-              {cur.chords.map((c, i) => (
+              {cur.chords.slice(0, 16).map((c, i) => (
                 <span key={i} className="chip !py-0.5 !text-[11px]">{c}</span>
               ))}
+              {cur.chords.length > 16 && (
+                <span className="chip !py-0.5 !text-[11px] text-ink-3">
+                  +{cur.chords.length - 16} more
+                </span>
+              )}
             </div>
           </div>
         )}

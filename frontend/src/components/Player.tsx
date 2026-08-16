@@ -178,9 +178,12 @@ export function Player({ track, url }: { track: GenerateResult | null; url: stri
           Chords · {track.params.key} {track.params.mode}
         </p>
         <div className="flex flex-wrap gap-1.5">
-          {track.chords.map((c, i) => (
+          {track.chords.slice(0, 16).map((c, i) => (
             <span key={i} className="chip">{c}</span>
           ))}
+          {track.chords.length > 16 && (
+            <span className="chip text-ink-3">+{track.chords.length - 16} more</span>
+          )}
         </div>
       </div>
 

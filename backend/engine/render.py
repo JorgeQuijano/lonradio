@@ -22,6 +22,7 @@ class RenderResult:
     name: str
     duration_s: float
     chords: List[str]
+    sections: List[dict]
     took_ms: int
 
 
@@ -67,6 +68,20 @@ def render(p: TrackParams, out_dir: Path) -> RenderResult:
     theory.export_midi(comp, str(midi_path))
 
     chord_names = [name for (_s, _d, name) in comp.chords]
+    beat_s = 60.0 / p.bpm
+    sections = [
+        {
+            "name": s.name,
+            "start_bar": s.start_bar,
+            "bars": s.bars,
+            "start_s": round(s.start_bar * 4 * beat_s, 1),
+            "dur_s": round(s.bars * 4 * beat_s, 1),
+            "drums": s.drums,
+            "bass": s.bass,
+            "melody": s.melody,
+        }
+        for s in comp.sections
+    ]
     payload = {
         "name": p.track_name(),
         "describe": p.describe(),
@@ -76,6 +91,7 @@ def render(p: TrackParams, out_dir: Path) -> RenderResult:
         "bpm": p.bpm,
         "bars": p.bars,
         "duration_s": round(duration_s, 2),
+        "sections": sections,
     }
     json_path.write_text(json.dumps(payload, indent=2))
 
@@ -83,5 +99,5 @@ def render(p: TrackParams, out_dir: Path) -> RenderResult:
     return RenderResult(
         wav_path=wav_path, midi_path=midi_path, json_path=json_path,
         name=p.track_name(), duration_s=duration_s, chords=chord_names,
-        took_ms=took_ms,
+        sections=sections, took_ms=took_ms,
     )

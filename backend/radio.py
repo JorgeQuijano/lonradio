@@ -25,17 +25,21 @@ from engine.params import (BASS_STYLES, DRUM_STYLES, MELODY_STYLES, PRESETS,
 
 BASE = Path(__file__).resolve().parent
 RADIO_DIR = BASE / "tracks" / "_radio"
+HLS_DIR = RADIO_DIR / "hls"
 RADIO_DIR.mkdir(parents=True, exist_ok=True)
+HLS_DIR.mkdir(parents=True, exist_ok=True)
 
 GAP_S = 0.6                      # silence between tracks — the radio "breath"
 BUFFER_BYTES = 6_000_000         # ~6 min of history kept for late joiners
 HISTORY_LEN = 12
+HLS_WINDOW = 12                  # segments kept in the playlist / on disk
 
 
 @dataclass
 class _Chunk:
     data: bytes
     meta: dict
+    seq: int
 
 
 class RadioDJ:
@@ -52,6 +56,7 @@ class RadioDJ:
         self._started = time.time()
         self._played = 0
         self._listeners = 0
+        self._seq = 0
         self._params = TrackParams.from_dict(PRESETS["Rainy Study"])
 
     # ------------------------------------------------------------------ api
@@ -111,7 +116,11 @@ class RadioDJ:
             t0 = time.time()
             try:
                 r = render(self._params, RADIO_DIR)
-                mp3 = self._pad_and_encode(r.wav_path)
+                mp3 = self._encode_mp3(r.wav_path)
+                seq = self._seq
+                self._seq += 1
+                self._encode_ts(r.wav_path, seq)
+                self._rotate_hls(seq)
                 meta = {
                     "name": r.name,
                     "seed": self._params.seed,
@@ -119,11 +128,12 @@ class RadioDJ:
                     "bpm": self._params.bpm,
                     "bars": self._params.bars,
                     "chords": r.chords,
+                    "sections": r.sections,
                     "duration_s": round(r.duration_s, 2),
                     "rendered_ms": r.took_ms,
                     "started_at": time.time(),
                 }
-                self._publish(mp3, meta)
+                self._publish(mp3, meta, seq)
                 self._params = self._next_params(self._params)
                 # real-time pacing: the engine renders ~6x faster than
                 # playback, so wait out the remainder so "on air" metadata
@@ -135,9 +145,9 @@ class RadioDJ:
                 print(f"[radio] error: {e}", flush=True)
                 time.sleep(2)
 
-    def _publish(self, data: bytes, meta: dict) -> None:
+    def _publish(self, data: bytes, meta: dict, seq: int) -> None:
         with self._cond:
-            self._chunks.append(_Chunk(data, meta))
+            self._chunks.append(_Chunk(data, meta, seq))
             self._bytes += len(data)
             self._current_idx = len(self._chunks) - 1
             self._current = meta
@@ -175,20 +185,26 @@ class RadioDJ:
 
     # ---------------------------------------------------------------- tools
     @staticmethod
-    def _pad_and_encode(wav_path: Path) -> bytes:
-        """Append a breath of silence, then encode WAV -> raw MP3 frames."""
+    def _pad_wav(wav_path: Path) -> Path:
+        """Append a breath of silence; returns a temp padded WAV path."""
         with wave.open(str(wav_path)) as w:
             n = w.getnframes()
             sr = w.getframerate()
             ch = w.getnchannels()
             sw = w.getsampwidth()
             data = w.readframes(n)
-        tmp = wav_path.with_suffix(".gap.wav")
+        tmp = wav_path.with_suffix(".padded.wav")
         with wave.open(str(tmp), "wb") as w:
             w.setnchannels(ch)
             w.setsampwidth(sw)
             w.setframerate(sr)
             w.writeframes(data + bytes(int(sr * ch * sw * GAP_S)))
+        return tmp
+
+    @classmethod
+    def _encode_mp3(cls, wav_path: Path) -> bytes:
+        """Raw MP3 frames (for the plain /api/radio stream)."""
+        tmp = cls._pad_wav(wav_path)
         try:
             cmd = [
                 "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
@@ -204,9 +220,57 @@ class RadioDJ:
             raise RuntimeError("ffmpeg produced empty mp3")
         return out
 
+    @classmethod
+    def _encode_ts(cls, wav_path: Path, seq: int) -> Path:
+        """MPEG-TS segment with AAC audio (for HLS)."""
+        tmp = cls._pad_wav(wav_path)
+        dest = HLS_DIR / f"seg-{seq}.ts"
+        try:
+            cmd = [
+                "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                "-i", str(tmp),
+                "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2",
+                "-f", "mpegts", str(dest),
+            ]
+            subprocess.run(cmd, capture_output=True, check=True)
+        finally:
+            tmp.unlink(missing_ok=True)
+        if not dest.exists() or dest.stat().st_size == 0:
+            raise RuntimeError("ffmpeg produced empty ts segment")
+        return dest
+
+    @staticmethod
+    def _rotate_hls(seq: int) -> None:
+        """Keep only the last HLS_WINDOW segments on disk."""
+        for f in HLS_DIR.glob("seg-*.ts"):
+            try:
+                n = int(f.stem.split("-")[1])
+            except (IndexError, ValueError):
+                continue
+            if n < seq - HLS_WINDOW + 1:
+                f.unlink(missing_ok=True)
+
+    def hls_playlist(self) -> str:
+        """Live m3u8 over the current buffer window (no ENDLIST = live)."""
+        with self._cond:
+            chunks = list(self._chunks)
+        if not chunks:
+            return "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:60\n#EXT-X-MEDIA-SEQUENCE:0\n"
+        lines = ["#EXTM3U", "#EXT-X-VERSION:3"]
+        max_dur = max(c.meta["duration_s"] for c in chunks) + GAP_S
+        lines.append(f"#EXT-X-TARGETDURATION:{int(max_dur) + 1}")
+        lines.append(f"#EXT-X-MEDIA-SEQUENCE:{chunks[0].seq}")
+        for c in chunks:
+            dur = c.meta["duration_s"] + GAP_S
+            lines.append(f"#EXTINF:{dur:.3f},")
+            lines.append(f"seg-{c.seq}.ts")
+        return "\n".join(lines) + "\n"
+
     @staticmethod
     def _next_params(prev: TrackParams) -> TrackParams:
-        """Random walk between tracks: mood blocks for harmony, slow FX drift."""
+        """Random walk between tracks: mood blocks for harmony, slow FX drift.
+        Tracks are 3-7 minutes, built from 4-bar sections (the arrangement
+        engine changes the feel every 30-45s inside each track)."""
         rng = prev.rng()
         d = prev.to_dict()
         d["seed"] = (prev.seed + 1) % (2**31 - 1)
@@ -218,7 +282,9 @@ class RadioDJ:
             d["voicing"] = rng.choice(["spread", "spread", "drop2"])
             d["chord_ext"] = rng.choice(["9", "9", "7", "add9"])
         d["bpm"] = min(96, max(64, prev.bpm + rng.choice([-6, -4, -2, 0, 0, 2, 4, 6])))
-        d["bars"] = rng.choice([4, 8, 8, 12])
+        # 3-7 minutes, rounded to 4-bar blocks
+        target_s = rng.uniform(180, 420)
+        d["bars"] = min(72, max(24, round(target_s * d["bpm"] / 240 / 4) * 4))
         if rng.random() < 0.30:
             d["bass_style"] = rng.choice(BASS_STYLES)
         if rng.random() < 0.25:

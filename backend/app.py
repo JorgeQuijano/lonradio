@@ -8,7 +8,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from engine import PRESETS, TrackParams, render
@@ -136,6 +136,29 @@ def radio_stream() -> StreamingResponse:
         media_type="audio/mpeg",
         headers={"Cache-Control": "no-cache, no-store", "Connection": "keep-alive"},
     )
+
+
+@app.get("/api/radio/hls/playlist.m3u8")
+def hls_playlist() -> Response:
+    """Live HLS playlist (one segment per track) — the browser-friendly
+    stream: native on Safari, hls.js elsewhere."""
+    if not _RADIO_ENABLED:
+        raise HTTPException(status_code=503, detail="radio disabled (LONRADIO_RADIO=0)")
+    return Response(
+        dj.hls_playlist(),
+        media_type="application/vnd.apple.mpegurl",
+        headers={"Cache-Control": "no-cache, no-store"},
+    )
+
+
+@app.get("/api/radio/hls/seg-{seq}.ts")
+def hls_segment(seq: int) -> FileResponse:
+    from radio import HLS_DIR
+
+    f = HLS_DIR / f"seg-{seq}.ts"
+    if not f.exists():
+        raise HTTPException(status_code=404, detail="segment gone (rotated)")
+    return FileResponse(f, media_type="video/mp2t", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/radio/now")

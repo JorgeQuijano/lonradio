@@ -1,6 +1,7 @@
 /* Radio 24/7 — live stream player with now-playing ticker. */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { useRadioAudio } from "../useRadioAudio";
 import { Chip } from "./controls";
 
 interface TrackMeta {
@@ -28,8 +29,7 @@ function fmtUptime(s: number) {
 }
 
 export function RadioPlayer() {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [playing, setPlaying] = useState(false);
+  const { audioRef, playing, toggle, error } = useRadioAudio();
   const [now, setNow] = useState<RadioNow | null>(null);
   const [liveError, setLiveError] = useState(false);
 
@@ -54,16 +54,9 @@ export function RadioPlayer() {
     };
   }, []);
 
-  const toggle = () => {
-    const a = audioRef.current;
-    if (!a) return;
-    if (a.paused) {
-      void a.play().catch(() => setLiveError(true));
-      setPlaying(true);
-    } else {
-      a.pause();
-      setPlaying(false);
-    }
+  const togglePlay = () => {
+    toggle();
+    setLiveError(false);
   };
 
   const onAir = now?.current != null;
@@ -94,7 +87,7 @@ export function RadioPlayer() {
         <button
           type="button"
           className="w-11 h-11 rounded-full grid place-items-center bg-accent text-black shadow-btn hover:brightness-110 transition-all active:scale-95"
-          onClick={toggle}
+          onClick={togglePlay}
           aria-label={playing ? "Pause stream" : "Play stream"}
         >
           {playing ? (
@@ -160,6 +153,9 @@ export function RadioPlayer() {
         <p className="text-[12px] text-bad">
           Stream failed to start — is the backend radio running?
         </p>
+      )}
+      {error && !liveError && (
+        <p className="text-[12px] text-bad">{error}</p>
       )}
 
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
