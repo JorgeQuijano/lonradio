@@ -1,0 +1,13 @@
+# python
+__pycache__/
+*.pyc
+backend/.venv/
+backend/tracks/
+
+# node
+frontend/node_modules/
+frontend/dist/
+
+# misc
+.DS_Store
+*.log
