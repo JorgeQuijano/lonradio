@@ -28,7 +28,7 @@ export function Hero({
       <p className="mt-5 text-[15px] text-ink-2 max-w-xl mx-auto leading-relaxed">
         Every track is composed and synthesized from math — chord progressions,
         bass styles, drums and vinyl texture — then rendered to WAV + MIDI by a
-        Python engine in your browser.
+        Python engine. Or just press play on the 24/7 auto-DJ radio.
       </p>
       <div className="mt-8 flex items-center justify-center gap-3 flex-wrap">
         <button type="button" className="btn btn-primary !px-6 !py-2.5" onClick={onGenerate} disabled={generating}>

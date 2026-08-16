@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchPresets, generateTrack } from "./api";
 import { Hero } from "./components/Hero";
 import { Player } from "./components/Player";
+import { RadioPlayer } from "./components/RadioPlayer";
 import { Sidebar } from "./components/Sidebar";
 import { Studio } from "./components/Studio";
 import { TopBar } from "./components/TopBar";
@@ -84,8 +85,13 @@ export default function App() {
               </div>
             )}
 
-            <div className="xl:hidden">
-              {!isWide && <Player track={track} url={wavUrl} />}
+            <div className="xl:hidden flex flex-col gap-5">
+              {!isWide && (
+                <>
+                  <RadioPlayer />
+                  <Player track={track} url={wavUrl} />
+                </>
+              )}
             </div>
 
             {/* sticky generate bar (beautifului-style primary CTA row) */}
@@ -114,8 +120,13 @@ export default function App() {
           </div>
 
           <div className="hidden xl:block w-[340px] shrink-0">
-            <div className="sticky top-20">
-              {isWide && <Player track={track} url={wavUrl} />}
+            <div className="sticky top-20 flex flex-col gap-5">
+              {isWide && (
+                <>
+                  <RadioPlayer />
+                  <Player track={track} url={wavUrl} />
+                </>
+              )}
             </div>
           </div>
         </div>

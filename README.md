@@ -58,7 +58,23 @@ Open http://localhost:8000 after `npm run build`, or :5173 during dev.
 | `GET /api/tracks/{id}/audio.wav` | Rendered track (44.1kHz stereo 16-bit) |
 | `GET /api/tracks/{id}/track.mid` | music21 MIDI export (5 tracks: score/EP/bass/melody/drums) |
 | `GET /api/tracks/{id}/info` | Track JSON sidecar |
+| `GET /api/radio` | **Endless MP3 stream** — the 24/7 auto-DJ broadcast |
+| `GET /api/radio/now` | Now playing + history + listener count |
+| `GET /api/radio/status` | Radio enabled / listeners / uptime |
 | `GET /api/presets` / `GET /api/options` | UI vocabularies |
+
+## 24/7 radio
+
+`backend/radio.py` runs an auto-DJ thread: it renders tracks endlessly,
+random-walking between moods (harmony changes in "mood blocks", tempo ±6bpm
+per track, bass/drums/melody drift, FX wander slowly), encodes each track to
+MP3 via ffmpeg, and broadcasts to every connected listener. Listeners join at
+the start of the current track; ~6 min of history is buffered.
+
+- Starts with the server; disable with `LONRADIO_RADIO=0`.
+- Requires `ffmpeg` on PATH (MP3 encoding).
+- Browsers play it with a plain `<audio src="/api/radio">`; the studio's
+  "Lonradio 24/7" card shows live now-playing metadata.
 
 ## Determinism
 
